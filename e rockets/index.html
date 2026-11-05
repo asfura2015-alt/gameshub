@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Magic E Rocket</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#07113a;font-family:"Trebuchet MS",Arial,sans-serif}
+#game{position:relative;width:100vw;height:100vh;overflow:hidden;background:url("assets/bg.webp") center/cover no-repeat;touch-action:manipulation}
+.ui{position:absolute;z-index:30;filter:drop-shadow(0 5px 6px #00184b80);user-select:none;-webkit-user-drag:none}
+#home{left:1.2vw;top:1.5vh;width:5.2vw;min-width:52px;max-width:90px;cursor:pointer}
+#info{left:6.9vw;top:1.5vh;width:5.2vw;min-width:52px;max-width:90px;cursor:pointer}
+#progressWrap{position:absolute;z-index:18;left:50%;top:1.1vh;transform:translateX(-50%);width:min(31vw,520px);aspect-ratio:994/337;background:url("assets/progress.webp") center/contain no-repeat;filter:drop-shadow(0 5px 7px #00184b88)}
+#progressTrack{position:absolute;left:21.8%;right:13.2%;top:42.5%;height:18.5%;border-radius:999px;overflow:hidden;background:#f8fbff}
+#progressFill{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#39ef70,#15bd4c);box-shadow:inset 0 0 8px #087a35;transition:width .55s ease}
+#score{position:absolute;z-index:19;left:50%;top:12.2vh;transform:translateX(-50%);color:#fff;font-weight:900;font-size:clamp(16px,1.25vw,23px);text-shadow:0 2px 4px #002b6d;background:linear-gradient(#1599e7,#0867b8);border:2px solid #8de6ff;border-radius:19px;padding:.18em .8em;box-shadow:0 4px 0 #034d8b,0 5px 10px #001b4c66}
+#rockWord{position:absolute;z-index:8;left:24.2%;top:72.2%;transform:translate(-50%,-50%);font-weight:1000;font-size:clamp(78px,9.2vw,168px);letter-spacing:.01em;color:#fff;white-space:nowrap;text-shadow:0 6px 0 #2e2930,0 0 10px #080a18,0 0 20px #7fdfff;user-select:none;opacity:1}
+#rocket{position:absolute;z-index:12;width:clamp(190px,19vw,340px);left:50.2%;top:-45%;transform:translate(-50%,-50%);cursor:pointer;filter:drop-shadow(0 11px 14px #00123eaa);user-select:none;-webkit-user-drag:none;will-change:top,transform,opacity}
+.overlay{position:absolute;inset:0;z-index:60;display:none;align-items:center;justify-content:center;background:#0013349c;backdrop-filter:blur(2px)}
+.overlay.show{display:flex}
+#infoCard{position:relative;width:min(70vw,760px);aspect-ratio:1/1;background:url("assets/info_panel_ready.webp") center/contain no-repeat;cursor:pointer}
+#endCard{position:relative;width:min(70vw,760px);text-align:center}
+#endImg{width:100%;display:block;filter:drop-shadow(0 10px 18px #0008)}
+#endBtns{position:absolute;inset:0;z-index:4;pointer-events:none}
+.endBtn{position:absolute;opacity:0;pointer-events:auto;cursor:pointer;border:0;background:transparent}
+#restart{left:27.5%;top:67.5%;width:23%;height:24%}
+#endHome{left:53.2%;top:67.5%;width:23%;height:24%}
+@media(max-aspect-ratio:1.3/1){
+  #rockWord{left:24.5%;top:72%;font-size:clamp(70px,9vw,140px)}
+  #rocket{left:50%;width:clamp(180px,20vw,300px)}
+  #progressWrap{width:min(42vw,500px)}
+  #score{top:13vh}
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <img id="home" class="ui" src="assets/home.webp" alt="Home">
+  <img id="info" class="ui" src="assets/info.webp" alt="Info">
+  <div id="progressWrap"><div id="progressTrack"><div id="progressFill"></div></div></div>
+  <div id="score">0 / 12</div>
+  <div id="rockWord">cap</div>
+  <img id="rocket" src="assets/rocket.webp" alt="Magic e rocket">
+  <div id="infoOverlay" class="overlay"><div id="infoCard" title="Close"></div></div>
+  <div id="endOverlay" class="overlay">
+    <div id="endCard">
+      <img id="endImg" src="assets/end.webp" alt="Well done">
+      <div id="endBtns">
+        <button class="endBtn" id="restart" aria-label="Restart"></button>
+        <button class="endBtn" id="endHome" aria-label="Home"></button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const pairs=[
+  ["cap","cape"],["can","cane"],["kit","kite"],["pin","pine"],
+  ["fin","fine"],["rid","ride"],["hop","hope"],["cop","cope"],
+  ["rob","robe"],["tub","tube"],["cub","cube"],["cut","cute"]
+];
+const word=document.getElementById("rockWord");
+const rocket=document.getElementById("rocket");
+const fill=document.getElementById("progressFill");
+const score=document.getElementById("score");
+const infoOverlay=document.getElementById("infoOverlay");
+const endOverlay=document.getElementById("endOverlay");
+
+let order=[],idx=0,state="idle",delayTimer=null,activeAnimation=null;
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function stopPending(){
+  if(delayTimer){clearTimeout(delayTimer);delayTimer=null}
+  if(activeAnimation){activeAnimation.cancel();activeAnimation=null}
+}
+function tone(freq=660,d=.12,delay=0,type="sine"){
+  try{
+    const A=window._ac||(window._ac=new (window.AudioContext||window.webkitAudioContext)());
+    const o=A.createOscillator(),g=A.createGain();
+    o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(.0001,A.currentTime+delay);
+    g.gain.exponentialRampToValueAtTime(.16,A.currentTime+delay+.015);
+    g.gain.exponentialRampToValueAtTime(.0001,A.currentTime+delay+d);
+    o.connect(g);g.connect(A.destination);
+    o.start(A.currentTime+delay);o.stop(A.currentTime+delay+d+.02);
+  }catch(e){}
+}
+function correctSound(){tone(523,.16,0);tone(659,.16,.11);tone(784,.28,.22)}
+function winSound(){[523,659,784,1047].forEach((f,i)=>tone(f,.35,i*.14))}
+
+function fadeInCurrentWord(){
+  word.textContent=order[idx][0];
+  word.style.opacity="0";
+  word.style.filter="blur(5px)";
+  word.style.transform="translate(-50%,-50%) scale(.94)";
+  const a=word.animate(
+    [
+      {opacity:0,filter:"blur(5px)",transform:"translate(-50%,-50%) scale(.94)"},
+      {opacity:1,filter:"blur(0px)",transform:"translate(-50%,-50%) scale(1)"}
+    ],
+    {duration:520,easing:"ease-out",fill:"forwards"}
+  );
+  a.onfinish=()=>{
+    word.style.opacity="1";
+    word.style.filter="blur(0px)";
+    word.style.transform="translate(-50%,-50%) scale(1)";
+  };
+}
+
+function prepareRound(){
+  stopPending();
+  state="reading";
+  rocket.style.top="-45%";
+  rocket.style.transform="translate(-50%,-50%) scale(1)";
+  rocket.style.opacity="1";
+  fadeInCurrentWord();
+
+  delayTimer=setTimeout(()=>{
+    delayTimer=null;
+    descendRocket();
+  },2000);
+}
+
+function descendRocket(){
+  if(state!=="reading")return;
+  state="descending";
+  activeAnimation=rocket.animate(
+    [
+      {top:"-45%",transform:"translate(-50%,-50%) scale(1)"},
+      {top:"70.8%",transform:"translate(-50%,-50%) scale(1)"}
+    ],
+    {duration:4400,easing:"cubic-bezier(.22,.72,.26,1)",fill:"forwards"}
+  );
+  activeAnimation.onfinish=()=>{
+    activeAnimation=null;
+    rocket.style.top="70.8%";
+    rocket.style.transform="translate(-50%,-50%) scale(1)";
+    state="ready";
+  };
+}
+
+function launchRocket(){
+  if(state!=="ready")return;
+  state="launching";
+  correctSound();
+
+  word.animate(
+    [
+      {opacity:1,filter:"blur(0px)",transform:"translate(-50%,-50%) scale(1)"},
+      {opacity:0,filter:"blur(8px)",transform:"translate(-50%,-58%) scale(.88)"}
+    ],
+    {duration:900,easing:"ease-in",fill:"forwards"}
+  );
+
+  activeAnimation=rocket.animate(
+    [
+      {top:"70.8%",transform:"translate(-50%,-50%) scale(1)"},
+      {top:"57%",transform:"translate(-50%,-50%) scale(1.03)",offset:.23},
+      {top:"15%",transform:"translate(-50%,-50%) scale(.9)",offset:.72},
+      {top:"-48%",transform:"translate(-50%,-50%) scale(.72)"}
+    ],
+    {duration:1550,easing:"cubic-bezier(.35,.05,.72,.42)",fill:"forwards"}
+  );
+
+  activeAnimation.onfinish=()=>{
+    activeAnimation=null;
+    rocket.style.top="-45%";
+    rocket.style.transform="translate(-50%,-50%) scale(1)";
+    idx++;
+    fill.style.width=(idx/order.length*100)+"%";
+    score.textContent=idx+" / "+order.length;
+
+    if(idx>=order.length){
+      state="finished";
+      winSound();
+      setTimeout(()=>endOverlay.classList.add("show"),500);
+      return;
+    }
+
+    state="between";
+    setTimeout(()=>prepareRound(),260);
+  };
+}
+
+function startGame(){
+  stopPending();
+  order=shuffle(pairs.slice());
+  idx=0;
+  state="idle";
+  fill.style.width="0%";
+  score.textContent="0 / "+pairs.length;
+  endOverlay.classList.remove("show");
+  prepareRound();
+}
+
+rocket.addEventListener("click",launchRocket);
+rocket.addEventListener("touchend",e=>{e.preventDefault();launchRocket()},{passive:false});
+document.getElementById("info").onclick=()=>infoOverlay.classList.add("show");
+infoOverlay.addEventListener("click",()=>infoOverlay.classList.remove("show"));
+document.getElementById("restart").onclick=startGame;
+document.getElementById("home").onclick=()=>{if(history.length>1)history.back();else location.reload()};
+document.getElementById("endHome").onclick=()=>{if(history.length>1)history.back();else location.reload()};
+startGame();
+</script>
+</body>
+</html>
