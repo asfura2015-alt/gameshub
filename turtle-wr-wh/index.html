@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en"><head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+<title>Turtle Sound Sort – Reading Express</title>
+<style>
+:root{--stage-w:1920;--stage-h:1080}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden;background:#062e61;user-select:none;-webkit-user-select:none;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+#background{position:fixed;inset:0;width:100%;height:100%;background:url("assets/ocean.webp") center center / 100% 100% no-repeat;pointer-events:none}
+#viewport{position:fixed;inset:0;overflow:hidden}
+#stage{width:1920px;height:1080px;position:absolute;left:50%;top:50%;transform-origin:center center}
+#pool,#mothers{position:absolute;inset:0}
+.mom{position:absolute;width:530px;height:425px;border:0;background:transparent;padding:0;cursor:pointer;z-index:5;transform:translate(-50%,-50%);outline:none;touch-action:manipulation}
+.mom img{width:100%;height:100%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 16px 15px #07376277);transition:transform .23s ease,filter .23s ease}
+.mom:hover img{transform:translateY(-7px) rotate(-2deg) scale(1.035);filter:drop-shadow(0 18px 22px #093d6599)}
+.mom:active img,.mom.sound img{animation:momWiggle .58s ease}
+@keyframes momWiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-5deg) scale(1.04)}60%{transform:rotate(4deg) scale(1.04)}}
+#mom-r{left:470px;top:832px}#mom-w{left:1455px;top:832px}
+.mom.glow img{filter:drop-shadow(0 0 25px rgba(163,255,193,.9)) drop-shadow(0 12px 15px #06387366)}
+.baby{position:absolute;width:240px;height:172px;left:0;top:0;border:0;padding:0;background:transparent;transform:translate(-50%,-50%);z-index:9;cursor:grab;touch-action:none;will-change:left,top;outline:none}
+.baby .art{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 10px 9px #09345b4c);animation:bob var(--bobdur,4s) ease-in-out infinite;animation-delay:var(--bobdelay,0s)}
+.baby.dragging{cursor:grabbing;z-index:50}
+.baby.dragging .art{animation:none;transform:scale(1.09);filter:drop-shadow(0 22px 16px #032b5680)}
+.baby.settled{width:107px;height:84px;cursor:default;z-index:12;pointer-events:none}
+.baby.settled .art{animation:miniBob 3.8s ease-in-out infinite;filter:drop-shadow(0 4px 5px #05315e5f)}
+.baby.no-motion{transition:none!important}
+@keyframes bob{0%,100%{transform:translateY(-7px) rotate(-2deg)}50%{transform:translateY(7px) rotate(2deg)}}
+@keyframes miniBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.baby.bounced .art{animation:bad .32s ease-in-out}
+@keyframes bad{0%,100%{transform:rotate(0)}35%{transform:rotate(-7deg)}70%{transform:rotate(6deg)}}
+@media(prefers-reduced-motion:reduce){.baby .art{animation:none!important}.mom img{transition:none!important}}
+
+#buttons{position:absolute;top:32px;left:40px;z-index:120;display:flex;gap:12px;pointer-events:none}
+.ui-button{position:relative;width:108px;height:108px;padding:0;border:0;background:transparent;outline:0;cursor:pointer;touch-action:manipulation;pointer-events:auto;-webkit-tap-highlight-color:transparent}
+.ui-button img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none;filter:drop-shadow(0 8px 10px #062b5b66);transition:transform .2s ease,filter .2s ease}
+.ui-button:hover img,.ui-button:focus-visible img{transform:translateY(-8px) rotate(-4deg) scale(1.05);filter:drop-shadow(0 12px 13px #072c5c88)}
+.ui-button:active img{transform:translateY(2px) scale(.96)}
+.mom{z-index:5}
+#pool{pointer-events:none}
+#win-screen{position:absolute;inset:0;display:none;z-index:200;align-items:center;justify-content:center;background:rgba(1,26,69,.47);backdrop-filter:blur(4px)}
+#win-screen.visible{display:flex;animation:winFade .5s ease-out}
+#win-panel{position:relative;width:760px;height:535px;display:flex;align-items:center;justify-content:center}
+#win-panel>img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 22px 28px #01204488);animation:winPop .65s cubic-bezier(.2,1.3,.35,1) both}
+.win-hit{position:absolute;border:0;background:transparent;cursor:pointer;bottom:0;height:125px;width:140px;border-radius:50%;touch-action:manipulation}
+.win-hit:hover{filter:drop-shadow(0 0 9px white);transform:scale(1.06)}
+#win-home{left:28%}#win-restart{right:26%}
+@keyframes winFade{from{opacity:0}to{opacity:1}}
+@keyframes winPop{from{transform:scale(.6) translateY(55px);opacity:0}to{transform:scale(1);opacity:1}}
+.baby{pointer-events:auto}
+</style></head><body>
+<div id="background"></div>
+<main id="viewport" aria-label="Sort turtles by the beginning sound">
+<div id="stage">
+<div id="mothers">
+<button class="mom" id="mom-r" type="button" aria-label="Listen to /r/"><img src="assets/mom_r.webp" draggable="false" alt="Mother turtle /r/" /></button>
+<button class="mom" id="mom-w" type="button" aria-label="Listen to /w/"><img src="assets/mom_w.webp" draggable="false" alt="Mother turtle /w/" /></button>
+</div>
+<div id="pool"></div>
+<div id="buttons">
+<button type="button" class="ui-button" id="home-button" title="Home" aria-label="Home"><img src="assets/ui/restart.webp" alt="" draggable="false" /></button>
+<button type="button" class="ui-button" id="restart-button" title="Restart" aria-label="Restart"><img src="assets/ui/home.webp" alt="" draggable="false" /></button>
+</div>
+</div><div id="win-screen" role="dialog" aria-label="Well Done! You sorted all eleven turtles!" aria-modal="true"><div id="win-panel"><img src="assets/ui/well_done.webp" alt="Well Done!" draggable="false"/><button id="win-home" class="win-hit" title="Home" aria-label="Home"></button><button id="win-restart" class="win-hit" title="Restart" aria-label="Restart"></button></div></div></main>
+<script>
+'use strict';
+const KIDS=[{"src":"assets/babies/kid_02.webp","word":"write","group":"r","fromSide":"right"},{"src":"assets/babies/kid_03.webp","word":"when","group":"w","fromSide":"right"},{"src":"assets/babies/kid_04.webp","word":"what","group":"w","fromSide":"right"},{"src":"assets/babies/kid_05.webp","word":"wrist","group":"r","fromSide":"right"},{"src":"assets/babies/kid_06.webp","word":"whale","group":"w","fromSide":"right"},{"src":"assets/babies/kid_07.webp","word":"which","group":"w","fromSide":"left"},{"src":"assets/babies/kid_08.webp","word":"written","group":"r","fromSide":"left"},{"src":"assets/babies/kid_09.webp","word":"where","group":"w","fromSide":"left"},{"src":"assets/babies/kid_10.webp","word":"wrestle","group":"r","fromSide":"left"},{"src":"assets/babies/kid_11.webp","word":"wheat","group":"w","fromSide":"left"},{"src":"assets/babies/kid_12.webp","word":"wrap","group":"r","fromSide":"left"}];
+// WR begins with the /r/ sound; WH words in this set begin with /w/.
+function soundForWord(word){
+  const normalized=word.trim().toLowerCase();
+  if(normalized.startsWith('wr'))return 'r';
+  if(normalized.startsWith('wh'))return 'w';
+  throw new Error('Unexpected turtle word: '+word);
+}
+for(const kid of KIDS){if(kid.group!==soundForWord(kid.word))throw new Error('Incorrect phonics mapping: '+kid.word)}
+const SW=1920,SH=1080;
+const stage=document.querySelector('#stage');
+const pool=document.querySelector('#pool');
+const mom={r:document.querySelector('#mom-r'),w:document.querySelector('#mom-w')};
+const audio={r:new Audio('assets/audio/r.mp3'),w:new Audio('assets/audio/w.mp3'),right:new Audio('assets/audio/right.mp3'),wrong:new Audio('assets/audio/wrong.mp3'),winning:new Audio('assets/audio/winning.mp3')};
+Object.values(audio).forEach(a=>{a.preload='auto';a.volume=.92});
+function play(which){const a=audio[which];try{a.pause();a.currentTime=0;const p=a.play();if(p&&p.catch)p.catch(()=>{});}catch(e){}}
+function fit(){const k=Math.min(innerWidth/SW,innerHeight/SH);stage.style.transform=`translate(-50%,-50%) scale(${k})`}
+addEventListener('resize',fit);fit();
+function mapPoint(x,y){const rect=stage.getBoundingClientRect();return{x:(x-rect.left)*SW/rect.width,y:(y-rect.top)*SH/rect.height}}
+function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+const laneTargets={
+ right:[
+  {x:250,y:260},
+  {x:530,y:285},
+  {x:810,y:260},
+  {x:1090,y:285},
+  {x:1370,y:260}
+ ],
+ left:[
+  {x:250,y:525},
+  {x:500,y:500},
+  {x:750,y:525},
+  {x:1000,y:500},
+  {x:1250,y:525},
+  {x:1500,y:500}
+ ]
+};
+const motherPos={r:{x:470,y:832},w:{x:1455,y:832}};
+// Dock near the INNER/UPPER SIDE of each mother (marked in the user's screenshot).
+// Multiple babies form neat rows, never float above the mothers' heads.
+const dockOffsets={
+ r:[[-170,-118],[-130,-160],[-72,-193],[-4,-210],[66,-205]],
+ w:[[-66,-206],[2,-211],[70,-194],[128,-161],[168,-120],[176,-62]]
+};
+const items=[];
+let collected={r:0,w:0};
+const winScreen=document.querySelector("#win-screen");
+let generation=0;
+let timers=[];
+function schedule(fn,delay){const t=setTimeout(fn,delay);timers.push(t);return t}
+function shuffle(list){const a=list.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a}
+function setXY(o,x,y){o.x=x;o.y=y;o.el.style.left=x+'px';o.el.style.top=y+'px'}
+function createBaby(kid,target,delay,gen){
+ if(!target) throw new Error(`Missing target lane for ${kid.word}`);
+ const el=document.createElement('button');el.className='baby';el.type='button';
+ el.setAttribute('aria-label',kid.word+', drag to matching mother turtle');
+ const img=document.createElement('img');img.className='art';img.src=kid.src;img.alt=kid.word;img.draggable=false;
+ img.style.setProperty('--bobdur',(3.6+Math.random()*1.3).toFixed(2)+'s');
+ img.style.setProperty('--bobdelay',(-Math.random()*2).toFixed(2)+'s');
+ el.append(img);pool.append(el);
+ const startX=kid.fromSide==='right'?2090:-170;
+ const o={kid,el,x:startX,y:target.y,home:target,dragging:false,settled:false,pointer:null,arrived:false};
+ items.push(o);setXY(o,startX,target.y);
+ // The two directions form parallel, non-overlapping swimming lanes.
+ // All turtles swim head first at the same slow horizontal speed.
+ const seconds=Math.abs(startX-target.x)/175;
+ // Commit the off-screen starting position before applying the transition.
+ void el.offsetWidth;
+ schedule(()=>{
+   if(gen!==generation||o.dragging||o.settled)return;
+   el.style.transition='left '+seconds.toFixed(2)+'s linear,top '+seconds.toFixed(2)+'s linear';
+   setXY(o,target.x,target.y);
+   schedule(()=>{if(gen===generation)o.arrived=true},seconds*1000+80)
+ },delay);
+ el.addEventListener('pointerdown',ev=>beginDrag(ev,o));
+ return o;
+}
+function startGame(){
+ generation++;
+ for(const t of timers)clearTimeout(t);timers=[];
+ pool.replaceChildren();items.length=0;
+ collected={r:0,w:0};
+ winScreen.classList.remove("visible");
+ for(const a of Object.values(audio)){a.pause();a.currentTime=0}
+ const gen=generation;
+ // Keep appearance direction consistent with the source art:
+ // turtles facing left always swim in from the right, and turtles facing right always swim in from the left.
+ const fromRight=shuffle(KIDS.filter(k=>k.fromSide==="right"));
+ const fromLeft=shuffle(KIDS.filter(k=>k.fromSide==="left"));
+ fromRight.forEach((kid,i)=>createBaby(kid,laneTargets.right[i],i*600,gen));
+ fromLeft.forEach((kid,i)=>createBaby(kid,laneTargets.left[i],i*600+260,gen));
+}
+function beginDrag(ev,o){
+ if(o.settled||ev.button!==0||!o.arrived)return;
+ ev.preventDefault();
+ o.dragging=true;o.pointer=ev.pointerId;
+ // Use current rendered position to prevent jumps.
+ const rect=o.el.getBoundingClientRect();
+ const c=mapPoint(rect.left+rect.width/2,rect.top+rect.height/2);
+ o.el.style.transition='none';setXY(o,c.x,c.y);
+ o.el.classList.add('dragging');o.el.setPointerCapture(ev.pointerId);
+ const p=mapPoint(ev.clientX,ev.clientY);o.grabDx=o.x-p.x;o.grabDy=o.y-p.y;
+}
+pool.addEventListener('pointermove',ev=>{
+ const o=items.find(k=>k.dragging&&k.pointer===ev.pointerId);if(!o)return;
+ ev.preventDefault();const p=mapPoint(ev.clientX,ev.clientY);
+ setXY(o,Math.max(48,Math.min(1872,p.x+o.grabDx)),Math.max(70,Math.min(1020,p.y+o.grabDy)));
+});
+function finishDrag(ev){
+ const o=items.find(k=>k.dragging&&k.pointer===ev.pointerId);if(!o)return;
+ o.dragging=false;o.el.classList.remove('dragging');o.pointer=null;
+ const releasedAt=mapPoint(ev.clientX,ev.clientY);
+ let candidate=null,nearest=Infinity;
+ for(const key of ['r','w']){
+   const d=Math.min(distance(releasedAt,motherPos[key]),distance(o,motherPos[key]));
+   if(d<nearest){nearest=d;candidate=key}
+ }
+ if(nearest<305){
+   if(candidate===soundForWord(o.kid.word)){
+     const index=collected[candidate]++;
+     const [dx,dy]=dockOffsets[candidate][index];
+     o.settled=true;o.el.classList.add('settled');
+     o.el.style.transition='left .75s cubic-bezier(.17,.8,.25,1),top .75s cubic-bezier(.17,.8,.25,1),width .75s ease,height .75s ease';
+     setXY(o,motherPos[candidate].x+dx,motherPos[candidate].y+dy);
+     play('right');mom[candidate].classList.add('glow');
+     const gen=generation;schedule(()=>{if(gen===generation)mom[candidate].classList.remove('glow')},650);
+     if(collected.r+collected.w===KIDS.length){
+       schedule(()=>{if(gen===generation){winScreen.classList.add('visible');play('winning');}},1100);
+     }
+   }else{
+     play('wrong');o.el.classList.add('bounced');
+     o.el.style.transition='left .82s cubic-bezier(.18,.82,.2,1),top .82s cubic-bezier(.18,.82,.2,1)';
+     setXY(o,o.home.x,o.home.y);
+     const gen=generation;schedule(()=>{if(gen===generation)o.el.classList.remove('bounced')},460);
+   }
+ }else{
+   o.el.style.transition='left .58s ease-out,top .58s ease-out';
+   setXY(o,o.home.x,o.home.y);
+ }
+}
+pool.addEventListener('pointerup',finishDrag);
+pool.addEventListener('pointercancel',finishDrag);
+for(const group of ['r','w']){
+ mom[group].addEventListener('click',()=>{
+   play(group);mom[group].classList.remove('sound');void mom[group].offsetWidth;mom[group].classList.add('sound');
+ });
+ mom[group].addEventListener('animationend',()=>mom[group].classList.remove('sound'));
+}
+document.getElementById('restart-button').addEventListener('click',startGame);
+function goHome(){
+ // An embedded game can be closed by its hosting page if it supports this signal.
+ if(window.parent!==window)window.parent.postMessage({type:'readingexpress:home'},'*');
+ if(document.referrer&&window.history.length>1){window.history.back();return;}
+ window.location.href='https://www.readingexpress.ru/';
+}
+document.getElementById('home-button').addEventListener('click',goHome);
+document.getElementById('win-home').addEventListener('click',goHome);
+document.getElementById('win-restart').addEventListener('click',startGame);
+startGame();
+</script></body></html>
